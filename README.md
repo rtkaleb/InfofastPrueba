@@ -1,4 +1,4 @@
-# Pedimento de Órdenes de Venta -- Aplicación Web
+# Pedimento de Órdenes de Venta - Aplicación Web
 
 Aplicación desarrollada como **prueba técnica de desarrollo web para InfoFast** cuyo
 objetivo es construir una interfaz que permita generar pedidos de venta
@@ -14,7 +14,7 @@ La aplicación pretende evaluar habilidades en:
 -   Persistencia de datos en base de datos
 
 ------------------------------------------------------------------------
-![Portada app](images/Interfaz_app.png)
+![Portada app](pedido-ventas/images/Interfaz_app.png)
 
 
 # Descripción general
@@ -113,21 +113,29 @@ Ya que la base de datos es un ejercicio sencillo.
 
 # Estructura del proyecto
 
+
     pedido-ventas/
     │
-    ├── index.php
-    ├── style.css
-    ├── app.js
-    │
     ├── api/
-    │   ├── proxy_clientes.php
-    │   ├── proxy_productos.php
-    │   └── guardar_pedido.php
+    │ ├── proxy_clientes.php
+    │ ├── proxy_productos.php
+    │ └── guardar_pedido.php
     │
+    ├── data/
+    │ └── ventas.sqlite
+    │
+    ├── imagenes/
+    │ ├── Interfaz_app.png
+    │ ├── Interfaz_clientes.png
+    │ └── Interfaz_productos.png
+    │
+    ├── app.js
     ├── db.php
+    ├── index.php
     ├── init_db.php
-    │
-    └── pedidos.db
+    ├── init.sql
+    ├── style.css
+    └── README.md
 
 ------------------------------------------------------------------------
 
@@ -298,8 +306,8 @@ En el navegador:
 ------------------------------------------------------------------------
 ## Evidencia de consumo del API
 
-![Postman Clientes](images/Interfaz_clientes.png)
-![Postman Productos](images/Interfaz_productos.png)
+![Postman Clientes](pedido-ventas/images/Interfaz_clientes.png)
+![Postman Productos](pedido-ventas/images/Interfaz_productos.png)
 
 
 ------------------------------------------------------------------------
