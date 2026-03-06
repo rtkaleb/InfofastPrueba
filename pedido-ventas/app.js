@@ -1,6 +1,14 @@
+// Arreglos globales donde se almacenarán los clientes y productos
+// después de cargarlos desde la API.
 let clientes = [];
 let productos = [];
 
+/**
+ * Da formato de moneda mexicana a un valor numérico.
+ * Ejemplo: 1234.5 -> "$1,234.50"
+ * @param {number} valor
+ * @returns {string}
+ */
 function formatoMoneda(valor) {
     return new Intl.NumberFormat("es-MX", {
         style: "currency",
@@ -8,10 +16,19 @@ function formatoMoneda(valor) {
     }).format(valor);
 }
 
+/**
+ * Cuando el documento termina de cargar:
+ * 1. Inicializa el selector de fecha/hora.
+ * 2. Carga clientes y productos desde la API.
+ * 3. Registra los eventos principales del formulario.
+ * 4. Oculta el loader.
+ * 5. Agrega una primera fila de producto por defecto.
+ */
 document.addEventListener("DOMContentLoaded", async () => {
     flatpickr("#fechaEntrega", {
         enableTime: true,
         dateFormat: "Y-m-d H:i",
+        // La fecha mínima permitida es 1 minuto después del momento actual
         minDate: new Date(Date.now() + 60000)
     });
 
@@ -20,27 +37,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById("btnAgregarProducto").addEventListener("click", agregarFilaProducto);
     document.getElementById("pedidoForm").addEventListener("submit", guardarPedido);
+
+    // Oculta el indicador de carga una vez que todo está listo
     document.getElementById("loader").style.display = "none";
 
+    // Agrega una fila inicial para facilitar la captura
     agregarFilaProducto();
 });
 
-
+/**
+ * Obtiene la lista de clientes desde el backend,
+ * la normaliza y llena el <select> de clientes.
+ */
 async function cargarClientes() {
     try {
         const res = await fetch("api/proxy_clientes.php");
         const data = await res.json();
 
+        // Si la API responde con ok=false, se considera error controlado
         if (data.ok === false) {
             throw new Error(data.message);
         }
 
+        // Convierte la respuesta a una estructura uniforme
         clientes = normalizarClientes(data);
         console.log("CLIENTES NORMALIZADOS:", clientes);
 
         const select = document.getElementById("cliente");
         select.innerHTML = `<option value="">Seleccione un cliente</option>`;
 
+        // Llena el combo con los clientes disponibles
         clientes.forEach(cliente => {
             const option = document.createElement("option");
             option.value = cliente.id;
@@ -53,15 +79,21 @@ async function cargarClientes() {
     }
 }
 
+/**
+ * Obtiene la lista de productos desde el backend
+ * y la guarda normalizada en memoria.
+ */
 async function cargarProductos() {
     try {
         const res = await fetch("api/proxy_productos.php");
         const data = await res.json();
 
+        // Si la API devuelve ok=false, lanzamos error
         if (data.ok === false) {
             throw new Error(data.message);
         }
 
+        // Convierte la respuesta a una estructura uniforme
         productos = normalizarProductos(data);
         console.log("PRODUCTOS NORMALIZADOS:", productos);
     } catch (error) {
@@ -70,6 +102,16 @@ async function cargarProductos() {
     }
 }
 
+/**
+ * Normaliza la estructura de clientes, ya que el backend
+ * podría regresar los datos con distintos nombres de propiedades.
+ *
+ * Siempre devuelve objetos con esta forma:
+ * { id: "...", nombre: "..." }
+ *
+ * @param {Array|Object} data
+ * @returns {Array}
+ */
 function normalizarClientes(data) {
     const arr = Array.isArray(data)
         ? data
@@ -93,9 +135,21 @@ function normalizarClientes(data) {
             c.descripcion ??
             "Cliente sin nombre"
         )
-    })).filter(c => c.id && c.nombre);
+    }))
+    // Solo conserva clientes válidos
+    .filter(c => c.id && c.nombre);
 }
 
+/**
+ * Normaliza la estructura de productos, ya que el backend
+ * podría regresar los datos con distintos nombres de propiedades.
+ *
+ * Siempre devuelve objetos con esta forma:
+ * { id: "...", nombre: "...", precio: 0 }
+ *
+ * @param {Array|Object} data
+ * @returns {Array}
+ */
 function normalizarProductos(data) {
     const arr = Array.isArray(data)
         ? data
@@ -125,9 +179,20 @@ function normalizarProductos(data) {
             p.PrecioUnitario ??
             0
         )
-    })).filter(p => p.id && p.nombre);
+    }))
+    // Solo conserva productos válidos
+    .filter(p => p.id && p.nombre);
 }
 
+/**
+ * Obtiene los IDs de los productos que ya fueron seleccionados
+ * en las filas actuales del formulario.
+ *
+ * Esto se usa para evitar que un mismo producto aparezca repetido
+ * en varias filas.
+ *
+ * @returns {Array<string>}
+ */
 function productosSeleccionados() {
     const selects = document.querySelectorAll(".producto-select");
     const ids = [];
@@ -137,22 +202,34 @@ function productosSeleccionados() {
     });
 
     return ids;
-    }
+}
 
+/**
+ * Agrega dinámicamente una fila nueva de producto al formulario.
+ *
+ * Cada fila contiene:
+ * - selector de producto
+ * - cantidad
+ * - precio unitario (solo lectura)
+ * - subtotal (solo lectura)
+ * - botón para eliminar la fila
+ */
 function agregarFilaProducto() {
     const container = document.getElementById("productosContainer");
     const row = document.createElement("div");
     row.className = "product-row";
 
+    // Obtiene los productos ya elegidos para no repetir opciones
     const seleccionados = productosSeleccionados();
 
-const productOptions = productos
-    .filter(p => !seleccionados.includes(String(p.id)))
-    .map(p => `
-        <option value="${p.id}" data-precio="${p.precio}" data-nombre="${p.nombre}">
-            ${p.nombre} - $${p.precio.toFixed(2)}
-        </option>
-    `).join("");
+    const productOptions = productos
+        .filter(p => !seleccionados.includes(String(p.id)))
+        .map(p => `
+            <option value="${p.id}" data-precio="${p.precio}" data-nombre="${p.nombre}">
+                ${p.nombre} - $${p.precio.toFixed(2)}
+            </option>
+        `)
+        .join("");
 
     row.innerHTML = `
         <select class="producto-select">
@@ -171,37 +248,52 @@ const productOptions = productos
 
     container.appendChild(row);
 
+    // Referencias a los elementos internos de la fila recién creada
     const select = row.querySelector(".producto-select");
     const cantidad = row.querySelector(".cantidad-input");
     const precio = row.querySelector(".precio-input");
     const subtotal = row.querySelector(".subtotal-input");
     const btnEliminar = row.querySelector(".btn-eliminar");
 
+    /**
+     * Recalcula el precio mostrado y subtotal de esta fila
+     * según el producto seleccionado y la cantidad capturada.
+     */
     function recalcularFila() {
         const option = select.options[select.selectedIndex];
-        const precioUnitario = parseFloat(option?.dataset?.precio || 0);    
+        const precioUnitario = parseFloat(option?.dataset?.precio || 0);
         const cant = parseInt(cantidad.value || 0);
         const sub = precioUnitario * cant;
 
         precio.value = formatoMoneda(precioUnitario);
         subtotal.value = formatoMoneda(sub);
 
+        // Cada vez que cambia una fila, también recalculamos el total general
         recalcularTotales();
     }
 
-    
-
+    // Recalcula cuando cambia el producto o la cantidad
     select.addEventListener("change", recalcularFila);
     cantidad.addEventListener("input", recalcularFila);
 
+    // Elimina la fila y actualiza los totales
     btnEliminar.addEventListener("click", () => {
         row.remove();
         recalcularTotales();
     });
 
+    // Inicializa los valores de la fila
     recalcularFila();
 }
 
+/**
+ * Recorre todas las filas de productos y calcula:
+ * - subtotal general
+ * - total general
+ *
+ * En este caso ambos valores son iguales porque no se aplican
+ * impuestos, descuentos o cargos extra.
+ */
 function recalcularTotales() {
     const rows = document.querySelectorAll(".product-row");
     let subtotalGeneral = 0;
@@ -219,6 +311,18 @@ function recalcularTotales() {
     document.getElementById("totalGeneral").textContent = formatoMoneda(subtotalGeneral);
 }
 
+/**
+ * Valida los campos del formulario antes de guardar.
+ *
+ * Reglas:
+ * - Debe existir cliente
+ * - Debe existir fecha
+ * - La fecha debe ser futura
+ * - Debe haber al menos una fila
+ * - Debe haber al menos un producto válido con cantidad > 0
+ *
+ * @returns {boolean}
+ */
 function validarFormulario() {
     const clienteId = document.getElementById("cliente").value;
     const fecha = document.getElementById("fechaEntrega").value;
@@ -233,6 +337,7 @@ function validarFormulario() {
         return false;
     }
 
+    // Convierte la fecha del input a objeto Date para comparar
     const fechaSeleccionada = new Date(fecha.replace(" ", "T"));
     const ahora = new Date();
 
@@ -242,6 +347,7 @@ function validarFormulario() {
     }
 
     const rows = document.querySelectorAll(".product-row");
+
     if (rows.length === 0) {
         mostrarMensaje("Debe agregar al menos un producto.", "error");
         return false;
@@ -266,9 +372,15 @@ function validarFormulario() {
     return true;
 }
 
+/**
+ * Envía el pedido al backend cuando el usuario manda el formulario.
+ *
+ * @param {Event} e
+ */
 async function guardarPedido(e) {
     e.preventDefault();
 
+    // Si la validación falla, no continúa con el guardado
     if (!validarFormulario()) return;
 
     const clienteSelect = document.getElementById("cliente");
@@ -278,7 +390,9 @@ async function guardarPedido(e) {
 
     const rows = document.querySelectorAll(".product-row");
 
+    // Construye el arreglo de productos seleccionados para enviarlo a la API
     const productosSeleccionados = [];
+
     rows.forEach(row => {
         const select = row.querySelector(".producto-select");
         const option = select.options[select.selectedIndex];
@@ -315,6 +429,7 @@ async function guardarPedido(e) {
 
         const data = await res.json();
 
+        // Si la respuesta no es exitosa, lanza error
         if (!data.ok) {
             throw new Error(data.message || "No se pudo guardar el pedido.");
         }
@@ -326,15 +441,26 @@ async function guardarPedido(e) {
     }
 }
 
+/**
+ * Limpia todos los campos del formulario y deja el estado inicial.
+ */
 function limpiarFormulario() {
     document.getElementById("cliente").value = "";
     document.getElementById("fechaEntrega").value = "";
     document.getElementById("productosContainer").innerHTML = "";
     document.getElementById("subtotalGeneral").textContent = formatoMoneda(0);
     document.getElementById("totalGeneral").textContent = formatoMoneda(0);
+
+    // Deja una fila vacía lista para capturar un nuevo pedido
     agregarFilaProducto();
 }
 
+/**
+ * Muestra un mensaje visual al usuario.
+ *
+ * @param {string} texto - Texto del mensaje
+ * @param {string} tipo - Tipo de mensaje: "ok" o "error"
+ */
 function mostrarMensaje(texto, tipo) {
     const mensaje = document.getElementById("mensaje");
     mensaje.textContent = texto;
